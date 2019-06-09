@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # normal_path = sys.argv[1]
     # tumor_path = sys.argv[2]
     # output_name = sys.argv[3]
-    output_name = 'Simulator'
+    output_name = 'Simulator_v2'
     tumor_path = "test_sam.sam"
     normal_path = "p1_blood.sam"
     tumor_sam = pysam.AlignmentFile(tumor_path, "r")
