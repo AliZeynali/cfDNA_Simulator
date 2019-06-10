@@ -62,7 +62,10 @@ def get_read_in_range(all_reads, window_size, list_of_n, p_tumor, list_of_positi
             p_tumor_val = p_tumor.pop(0)
             p_normal = 1 - p_tumor_val
             i = int(all_reads[0][2] / window_size)
-            n = list_of_n.pop(0)
+            if len(list_of_n) > 0:
+                n = list_of_n.pop(0)
+            else:
+                n = 100 #default n
             begin_pos = i * window_size
             end_pos = begin_pos + window_size
             window_read_tumor = []
@@ -246,12 +249,12 @@ def read_error_rate_list(path):
 
 if __name__ == "__main__":
     initial_time = time.time()
-    # normal_path = sys.argv[1]
-    # tumor_path = sys.argv[2]
+    normal_path = sys.argv[1]
+    tumor_path = sys.argv[2]
     # output_name = sys.argv[3]
-    output_name = 'Simulator_v2.0.1'
-    tumor_path = "test_sam.sam"
-    normal_path = "p1_blood.sam"
+    output_name = 'Simulator_v2.1.1'
+    # tumor_path = "test_sam.sam"
+    # normal_path = "p1_blood.sam"
     tumor_sam = pysam.AlignmentFile(tumor_path, "r")
     normal_sam = pysam.AlignmentFile(normal_path, "r")
     all_reads = {}
@@ -272,10 +275,8 @@ if __name__ == "__main__":
     for normal_read in normal_sam.fetch():
         try:
             if len(normal_read.get_reference_positions()) == 0:
-                # print("XXX")
                 continue
             if not is_a_valid_read(normal_read.reference_name):
-                # print("YYY")
                 continue
             read = ['normal', normal_read.reference_name, normal_read.get_reference_positions()[0],
                     normal_read.get_reference_positions()[-1], normal_read]
@@ -288,6 +289,35 @@ if __name__ == "__main__":
         except AttributeError as e:
             # print(e)
             continue
+    del (normal_sam)
+
+    sam_file_reads = []
+    print("Simulating by normal reads...")
+    for chr in all_reads:
+        chr_reads = sorted(all_reads[chr], key=lambda x: x[2])
+        print("\t\tSimulating chromosome:\t", chr, " in normal reads")
+        begin_pos = chr_reads[0][2]
+        end_pos = chr_reads[-1][3]
+        positions = sorted(random.sample(range(begin_pos, end_pos), int(total_positions / 48)))
+        list_of_n = read_coverage_list('chr_cov/chr_cov/{0}_coverage.csv'.format(chr))
+        # error_positions = [[72550, 0.5, 0.5], [110400, 0.5, 0.5], [142700, 0.5, 0.5], [142800, 0.5, 0.5],
+        #                    [142900, 0.5, 0.5], [143100, 0.5, 0.5], [143300, 0.5, 0.5], [144100, 0.5, 0.5],
+        #                    [144300, 0.5, 0.5]]
+        error_positions = []
+        for i in range(len(positions)):
+            error_positions.append([positions[i], list_of_normal_error_rates[i], list_of_tissue_error_rates[i]])
+        l = len(error_positions)
+        list_of_normal_error_rates = list_of_normal_error_rates[l:]
+        list_of_tissue_error_rates = list_of_tissue_error_rates[l:]
+        read_in_range, normal_sim, tissue_sim = get_read_in_range(chr_reads, window_size, list_of_n, list_of_p_tumor,
+                                                                  error_positions)
+        number_of_simulated_normal_reads += normal_sim
+        number_of_simulated_tissue_reads += tissue_sim
+        for r in read_in_range:
+            sam_file_reads.append(r)
+
+    del (all_reads)
+    all_reads = {}
     print("Reading tumor file...")
     for tumor_read in tumor_sam:
         try:
@@ -307,17 +337,16 @@ if __name__ == "__main__":
         except AttributeError as e:
             # print(e)
             continue
-    print("number of total input reads:\t", number_of_input_tissue_reads + number_of_input_normal_reads)
-    print("number of normal input reads:\t", number_of_input_normal_reads)
-    print("number of tissue input reads:\t", number_of_input_tissue_reads)
-    sam_file_reads = []
-    print("Creating samfile...")
+    del (tumor_sam)
+    list_of_normal_error_rates = read_error_rate_list('bloodSmallPeak.csv')
+    list_of_tissue_error_rates = read_error_rate_list('tissueSmallPeak.csv')
+    print("Simulating by tissue reads...")
     for chr in all_reads:
         chr_reads = sorted(all_reads[chr], key=lambda x: x[2])
-        print("\t\tSimulating chromosome:\t", chr)
+        print("\t\tSimulating chromosome:\t", chr, " in tumor reads")
         begin_pos = chr_reads[0][2]
         end_pos = chr_reads[-1][3]
-        positions = sorted(random.sample(range(begin_pos, end_pos), int(total_positions / 24)))
+        positions = sorted(random.sample(range(begin_pos, end_pos), int(total_positions / 48)))
         list_of_n = read_coverage_list('chr_cov/chr_cov/{0}_coverage.csv'.format(chr))
         # error_positions = [[72550, 0.5, 0.5], [110400, 0.5, 0.5], [142700, 0.5, 0.5], [142800, 0.5, 0.5],
         #                    [142900, 0.5, 0.5], [143100, 0.5, 0.5], [143300, 0.5, 0.5], [144100, 0.5, 0.5],
@@ -334,6 +363,11 @@ if __name__ == "__main__":
         number_of_simulated_tissue_reads += tissue_sim
         for r in read_in_range:
             sam_file_reads.append(r)
+
+    print("number of total input reads:\t", number_of_input_tissue_reads + number_of_input_normal_reads)
+    print("number of normal input reads:\t", number_of_input_normal_reads)
+    print("number of tissue input reads:\t", number_of_input_tissue_reads)
+
     print("number of total simulated reads:\t", len(sam_file_reads))
     print("number of normal simulated reads:\t", number_of_simulated_normal_reads)
     print("number of tissue simulated reads:\t", number_of_simulated_tissue_reads)
