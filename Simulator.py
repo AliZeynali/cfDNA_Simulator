@@ -59,7 +59,10 @@ def get_read_in_range(all_reads, window_size, list_of_n, p_tumor, list_of_positi
     new_position_error = []
     if list_of_n != None:
         while len(all_reads) > 0:
-            p_tumor_val = p_tumor.pop(0)
+            if len(p_tumor) > 0:
+                p_tumor_val = p_tumor.pop(0)
+            else:
+                p_tumor_val = 0.2 #default p_tumor
             p_normal = 1 - p_tumor_val
             i = int(all_reads[0][2] / window_size)
             if len(list_of_n) > 0:
@@ -192,7 +195,7 @@ def read_to_string(read, rNext, pNext):
     :param pNext:
     :return:
     '''
-    query = read[0].query
+    query = read[0].seq
     if read[1] == True:
         for tup in read[2]:
             query = query[0:tup[0]] + tup[1] + query[tup[0] + 1:]
@@ -200,7 +203,7 @@ def read_to_string(read, rNext, pNext):
     string += str(read[0].query_name) + "\t" + str(read[0].flag) + '\t' + str(read[0].reference_name) + '\t'
     string += str(read[0].get_reference_positions()[0]) + "\t" + str(read[0].mapping_quality) + '\t' + str(
         read[0].cigarstring) + '\t' + str(rNext) + '\t' + str(pNext) + '\t' + str(read[0].template_length) + '\t' + str(
-        query) + '\t' + str(read[0].qual)
+        query) + '\t' + str(read[0].qual)[2:-1]
 
     return string
 
@@ -252,7 +255,7 @@ if __name__ == "__main__":
     normal_path = sys.argv[1]
     tumor_path = sys.argv[2]
     # output_name = sys.argv[3]
-    output_name = 'Simulator_v2.1.1'
+    output_name = 'Simulator_v2.1.4'
     # tumor_path = "test_sam.sam"
     # normal_path = "p1_blood.sam"
     tumor_sam = pysam.AlignmentFile(tumor_path, "r")
@@ -280,6 +283,8 @@ if __name__ == "__main__":
                 continue
             read = ['normal', normal_read.reference_name, normal_read.get_reference_positions()[0],
                     normal_read.get_reference_positions()[-1], normal_read]
+            # if normal_read.cigarstring != '150M':
+            #     print("XX")
             if normal_read.reference_name in all_reads:
                 all_reads[normal_read.reference_name].append(read)
                 number_of_input_normal_reads += 1
@@ -328,6 +333,8 @@ if __name__ == "__main__":
 
             read = ['tumor', tumor_read.reference_name, tumor_read.get_reference_positions()[0],
                     tumor_read.get_reference_positions()[-1], tumor_read]
+            if tumor_read.cigarstring != '150M':
+                pass
             if tumor_read.reference_name in all_reads:
                 all_reads[tumor_read.reference_name].append(read)
                 number_of_input_tissue_reads += 1
